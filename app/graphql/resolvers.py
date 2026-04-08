@@ -1,8 +1,7 @@
-from collections.abc import Sequence
+from sqlalchemy.orm import Session
 
 from app.db.models import Destination
 
 
-def resolve_destinations() -> Sequence[Destination]:
-    """Placeholder resolver; data-access logic is intentionally not implemented yet."""
-    return []
+def resolve_destinations(db: Session) -> list[Destination]:
+    return db.query(Destination).all()

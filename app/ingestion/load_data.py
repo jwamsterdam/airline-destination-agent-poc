@@ -23,16 +23,16 @@ def load_destinations(csv_path: Path = DEFAULT_CSV_PATH) -> int:
             for row in reader:
                 rows.append(
                     Destination(
-                        destination_iata=row["destination_iata"],
-                        destination_name=row["destination_name"],
-                        destination_country=row["destination_country"],
-                        estimated_from_price_eur=float(row["estimated_from_price_eur"]),
-                        price_category=row["price_category"],
-                        price_basis=row["price_basis"],
-                        data_quality_note=row["data_quality_note"],
-                        trip_tags=row["trip_tags"],
-                        best_seasons=row["best_seasons"],
-                        trip_lengths=row["trip_lengths"],
+                        destination_iata=row.get("destination_code") or "",
+                        destination_name=row.get("destination") or "",
+                        destination_country=row.get("country") or "",
+                        estimated_from_price_eur=float(row.get("estimated_from_price_eur") or 0),
+                        price_category=row.get("price_category") or "",
+                        price_basis=row.get("price_basis") or "",
+                        data_quality_note=row.get("data_quality_note") or "",
+                        trip_tags=row.get("trip_tags") or "",
+                        best_seasons=row.get("best_seasons") or "",
+                        trip_lengths=row.get("trip_lengths") or "",
                     )
                 )
 

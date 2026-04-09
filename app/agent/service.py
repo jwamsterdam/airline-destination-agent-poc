@@ -62,29 +62,50 @@ class AgentService:
 
         destinations = self.destination_fetcher(applied_filters, self.graphql_endpoint_url)
         destinations = self._apply_region_constraint(destinations, parsed_query.region_constraint)
+        used_fallback = False
+        effective_filters = applied_filters
+
+        if not destinations:
+            fallback_filters = self._build_fallback_filters(applied_filters)
+            if fallback_filters is not None:
+                fallback_destinations = self.destination_fetcher(
+                    fallback_filters,
+                    self.graphql_endpoint_url,
+                )
+                fallback_destinations = self._apply_region_constraint(
+                    fallback_destinations,
+                    parsed_query.region_constraint,
+                )
+                if fallback_destinations:
+                    destinations = fallback_destinations
+                    effective_filters = fallback_filters
+                    used_fallback = True
+
         result_limit = limit or self.default_limit
         trimmed_destinations = destinations[:result_limit]
         enriched_destinations = self._enrich_destinations(
             original_query=message,
-            applied_filters=applied_filters,
+            applied_filters=effective_filters,
             destinations=trimmed_destinations,
             response_language=selected_language,
         )
         answer = self._compose_answer(
             original_query=message,
-            applied_filters=applied_filters,
+            applied_filters=effective_filters,
             region_constraint=parsed_query.region_constraint,
             destinations=enriched_destinations,
             chat_history=chat_history or [],
             response_language=selected_language,
+            used_fallback=used_fallback,
         )
 
         return AgentQueryResponse(
             original_query=message,
-            applied_filters=applied_filters,
+            applied_filters=effective_filters,
             matched_terms=parsed_query.matched_terms,
             answer=answer,
             destinations=enriched_destinations,
+            used_fallback=used_fallback,
         )
 
     def llm_availability(self) -> LLMAvailability:
@@ -116,11 +137,15 @@ class AgentService:
         destinations: List[DestinationResult],
         chat_history: List[ChatMessage],
         response_language: str,
+        used_fallback: bool,
     ) -> str:
         filter_summary = self._describe_filters(applied_filters, region_constraint)
 
         if not destinations:
             return get_text("no_results", response_language).format(filter_summary=filter_summary)
+
+        if used_fallback:
+            return get_text("fallback_match", response_language).format(filter_summary=filter_summary)
 
         return get_text("query_understanding", response_language).format(filter_summary=filter_summary)
 
@@ -248,6 +273,18 @@ class AgentService:
             if destination.destination_country in allowed_countries
         ]
 
+    def _build_fallback_filters(
+        self,
+        applied_filters: DestinationFilters,
+    ) -> Optional[DestinationFilters]:
+        if applied_filters.trip_tag is not None:
+            return applied_filters.model_copy(update={"trip_tag": None})
+        if applied_filters.season is not None:
+            return applied_filters.model_copy(update={"season": None})
+        if applied_filters.price_category is not None:
+            return applied_filters.model_copy(update={"price_category": None})
+        return None
+
     def _pick_numeric_value(
         self,
         llm_value: Optional[float],
@@ -323,6 +360,11 @@ TEXTS = {
         "en": "You are looking for {filter_summary}.",
         "nl": "Je zoekt naar {filter_summary}.",
         "fr": "Vous cherchez {filter_summary}.",
+    },
+    "fallback_match": {
+        "en": "There were no exact matches, so I broadened the search slightly. You are looking for {filter_summary}.",
+        "nl": "Er waren geen exacte matches, dus ik heb de zoekopdracht iets verruimd. Je zoekt naar {filter_summary}.",
+        "fr": "Il n'y avait pas de correspondance exacte, donc j'ai legerement elargi la recherche. Vous cherchez {filter_summary}.",
     },
 }
 

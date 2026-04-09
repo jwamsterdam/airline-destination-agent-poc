@@ -365,6 +365,11 @@ select {
 .destination-tags {
   margin: 0;
   color: var(--muted);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.5;
 }
 
 .destination-subtitle {

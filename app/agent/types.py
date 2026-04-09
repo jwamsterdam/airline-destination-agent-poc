@@ -68,6 +68,7 @@ class AgentQueryResponse(BaseModel):
     matched_terms: List[str]
     answer: str
     destinations: List[DestinationResult]
+    used_fallback: bool = False
 
 
 class ParsedQuery(BaseModel):

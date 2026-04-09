@@ -24,14 +24,6 @@ Rules:
 - Do not invent filters outside the request.
 """.strip()
 
-SUMMARY_SYSTEM_PROMPT = """
-You are a travel recommendation assistant for an airline demo.
-Use the supplied destination results only.
-Explain the best matches conversationally and clearly.
-If no destinations are supplied, explain that no matches were found and suggest relaxing budget, season, or trip type.
-Do not invent destinations or prices.
-""".strip()
-
 DESTINATION_DESCRIPTION_SYSTEM_PROMPT = """
 You are writing short destination recommendation blurbs for cards in a travel demo.
 Use only the supplied destination data and the original traveler query.
@@ -119,34 +111,11 @@ class OpenAITravelInterpreter:
             trip_tag=parsed.trip_tag,
             season=parsed.season,
         )
-        return ParsedQuery(filters=filters, matched_terms=parsed.matched_terms)
-
-    def summarize_results(
-        self,
-        original_query: str,
-        applied_filters: DestinationFilters,
-        destinations: List[DestinationResult],
-        chat_history: Optional[List[ChatMessage]] = None,
-        response_language: Optional[str] = None,
-    ) -> str:
-        if self._client is None:
-            raise RuntimeError(self._init_error or "OpenAI client is unavailable.")
-
-        prompt = build_summary_prompt(
-            original_query=original_query,
-            applied_filters=applied_filters,
-            destinations=destinations,
-            response_language=response_language,
+        return ParsedQuery(
+            filters=filters,
+            matched_terms=parsed.matched_terms,
+            region_constraint=parsed.region_constraint,
         )
-        response = self._client.responses.create(
-            model=self.model,
-            input=build_messages(
-                system_prompt=SUMMARY_SYSTEM_PROMPT,
-                message=prompt,
-                chat_history=chat_history or [],
-            ),
-        )
-        return response.output_text.strip()
 
     def describe_destinations(
         self,
@@ -183,21 +152,6 @@ def build_messages(system_prompt: str, message: str, chat_history: List[ChatMess
         messages.append({"role": chat_message.role, "content": chat_message.content})
     messages.append({"role": "user", "content": message})
     return messages
-
-
-def build_summary_prompt(
-    original_query: str,
-    applied_filters: DestinationFilters,
-    destinations: List[DestinationResult],
-    response_language: Optional[str] = None,
-) -> str:
-    payload = {
-        "original_query": original_query,
-        "applied_filters": applied_filters.model_dump(exclude_none=True),
-        "destinations": [destination.model_dump() for destination in destinations],
-        "response_language": LANGUAGE_NAMES.get(response_language or "en", "English"),
-    }
-    return json.dumps(payload, ensure_ascii=True, indent=2)
 
 
 def build_destination_description_prompt(

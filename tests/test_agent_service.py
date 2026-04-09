@@ -66,7 +66,7 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(response.destinations, [])
         self.assertIn("no destinations matched", response.answer)
-        fetcher.assert_called_once()
+        self.assertEqual(fetcher.call_count, 2)
 
     def test_uses_llm_interpreter_and_summary_when_available(self) -> None:
         interpreter = Mock()
@@ -144,7 +144,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertIsNone(response.applied_filters.price_category)
         self.assertEqual(response.applied_filters.trip_tag, "sunny_escape")
         self.assertIn("no destinations matched", response.answer)
-        interpreter.summarize_results.assert_not_called()
+        interpreter.describe_destinations.assert_not_called()
 
     def test_fallback_messages_are_localized(self) -> None:
         interpreter = Mock()
@@ -207,6 +207,73 @@ class AgentServiceTests(unittest.TestCase):
 
         fetcher.assert_called_once()
         self.assertIn("Southern Europe", response.answer)
+
+    def test_no_exact_match_can_fall_back_to_broader_country_results(self) -> None:
+        interpreter = Mock()
+        interpreter.is_available.return_value = False
+        fetcher = Mock(
+            side_effect=[
+                [],
+                [
+                    DestinationResult(
+                        destination_name="Nice",
+                        destination_country="France",
+                        estimated_from_price_eur=185.0,
+                        price_category="mid_range",
+                        trip_tags="citytrip|beach|sunny_escape|cultural|foodie|romantic",
+                        best_seasons="spring|summer|autumn",
+                    )
+                ],
+            ]
+        )
+        service = AgentService(
+            "http://example.test/graphql",
+            destination_fetcher=fetcher,
+            query_interpreter=interpreter,
+        )
+
+        response = service.run("I want a party location in France")
+
+        self.assertTrue(response.used_fallback)
+        self.assertEqual(response.applied_filters.country, "France")
+        self.assertIsNone(response.applied_filters.trip_tag)
+        self.assertEqual(len(response.destinations), 1)
+        self.assertIn("broadened the search slightly", response.answer)
+        self.assertEqual(fetcher.call_count, 2)
+
+    def test_hybrid_flow_uses_at_most_two_llm_calls(self) -> None:
+        interpreter = Mock()
+        interpreter.is_available.return_value = True
+        interpreter.parse_query.return_value = ParsedQuery.model_validate(
+            {
+                "filters": {"trip_tag": "nightlife"},
+                "matched_terms": ["party"],
+            }
+        )
+        interpreter.describe_destinations.return_value = [
+            Mock(destination_name="Barcelona", description="Barcelona is ideal for nightlife and summer energy.")
+        ]
+        service = AgentService(
+            "http://example.test/graphql",
+            destination_fetcher=Mock(
+                return_value=[
+                    DestinationResult(
+                        destination_name="Barcelona",
+                        destination_country="Spain",
+                        estimated_from_price_eur=210.0,
+                        price_category="premium",
+                        trip_tags="citytrip|nightlife",
+                        best_seasons="spring|summer",
+                    )
+                ]
+            ),
+            query_interpreter=interpreter,
+        )
+
+        service.run("I want to party in Barcelona")
+
+        interpreter.parse_query.assert_called_once()
+        interpreter.describe_destinations.assert_called_once()
 
 
 if __name__ == "__main__":

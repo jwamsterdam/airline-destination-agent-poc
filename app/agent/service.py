@@ -17,6 +17,9 @@ ALLOWED_PRICE_CATEGORIES = {"budget", "mid_range", "premium"}
 ALLOWED_SEASONS = set(SEASON_KEYWORDS.keys())
 ALLOWED_TRIP_TAGS = set(TRIP_TAG_PRIORITY)
 SUPPORTED_RESPONSE_LANGUAGES = {"en", "nl", "fr"}
+REGION_COUNTRY_MAP = {
+    "southern_europe": {"Albania", "Croatia", "Cyprus", "France", "Greece", "Italy", "Portugal", "Spain"},
+}
 
 
 class AgentService:
@@ -58,12 +61,20 @@ class AgentService:
             )
 
         destinations = self.destination_fetcher(applied_filters, self.graphql_endpoint_url)
+        destinations = self._apply_region_constraint(destinations, parsed_query.region_constraint)
         result_limit = limit or self.default_limit
         trimmed_destinations = destinations[:result_limit]
-        answer = self._compose_answer(
+        enriched_destinations = self._enrich_destinations(
             original_query=message,
             applied_filters=applied_filters,
             destinations=trimmed_destinations,
+            response_language=selected_language,
+        )
+        answer = self._compose_answer(
+            original_query=message,
+            applied_filters=applied_filters,
+            region_constraint=parsed_query.region_constraint,
+            destinations=enriched_destinations,
             chat_history=chat_history or [],
             response_language=selected_language,
         )
@@ -73,7 +84,7 @@ class AgentService:
             applied_filters=applied_filters,
             matched_terms=parsed_query.matched_terms,
             answer=answer,
-            destinations=trimmed_destinations,
+            destinations=enriched_destinations,
         )
 
     def llm_availability(self) -> LLMAvailability:
@@ -101,39 +112,28 @@ class AgentService:
         self,
         original_query: str,
         applied_filters: DestinationFilters,
+        region_constraint: Optional[str],
         destinations: List[DestinationResult],
         chat_history: List[ChatMessage],
         response_language: str,
     ) -> str:
-        if destinations and self.llm_enabled and self.query_interpreter.is_available():
-            try:
-                return self.query_interpreter.summarize_results(
-                    original_query=original_query,
-                    applied_filters=applied_filters,
-                    destinations=destinations,
-                    chat_history=chat_history,
-                    response_language=response_language,
-                )
-            except Exception:
-                pass
-
-        filter_summary = self._describe_filters(applied_filters)
+        filter_summary = self._describe_filters(applied_filters, region_constraint)
 
         if not destinations:
             return get_text("no_results", response_language).format(filter_summary=filter_summary)
 
-        destination_summary = ", ".join(
-            f"{destination.destination_name}, {destination.destination_country} "
-            f"(from EUR {destination.estimated_from_price_eur:.0f})"
-            for destination in destinations
-        )
-        return get_text("matches_found", response_language).format(
-            filter_summary=filter_summary,
-            destination_summary=destination_summary,
-        )
+        return get_text("query_understanding", response_language).format(filter_summary=filter_summary)
 
-    def _describe_filters(self, applied_filters: DestinationFilters) -> str:
+    def _describe_filters(
+        self,
+        applied_filters: DestinationFilters,
+        region_constraint: Optional[str] = None,
+    ) -> str:
         descriptions = []
+
+        region_label = humanize_region_constraint(region_constraint)
+        if region_label:
+            descriptions.append(region_label)
 
         if applied_filters.country:
             descriptions.append(f"country {applied_filters.country}")
@@ -152,6 +152,44 @@ class AgentService:
             return "the available destination filters"
 
         return ", ".join(descriptions)
+
+    def _enrich_destinations(
+        self,
+        original_query: str,
+        applied_filters: DestinationFilters,
+        destinations: List[DestinationResult],
+        response_language: str,
+    ) -> List[DestinationResult]:
+        if not destinations:
+            return destinations
+
+        descriptions_by_name = {}
+        if self.llm_enabled and self.query_interpreter.is_available():
+            try:
+                items = self.query_interpreter.describe_destinations(
+                    original_query=original_query,
+                    applied_filters=applied_filters,
+                    destinations=destinations,
+                    response_language=response_language,
+                )
+                descriptions_by_name = {
+                    item.destination_name: item.description
+                    for item in items
+                    if item.description
+                }
+            except Exception:
+                descriptions_by_name = {}
+
+        enriched_destinations = []
+        for destination in destinations:
+            description = descriptions_by_name.get(destination.destination_name) or fallback_destination_description(
+                destination=destination,
+                language=response_language,
+            )
+            enriched_destinations.append(
+                destination.model_copy(update={"description": description})
+            )
+        return enriched_destinations
 
     def _merge_with_rule_fallback(
         self,
@@ -177,6 +215,7 @@ class AgentService:
         return ParsedQuery(
             filters=merged_filters,
             matched_terms=merge_unique_terms(llm_parsed.matched_terms, rules_parsed.matched_terms),
+            region_constraint=llm_parsed.region_constraint or rules_parsed.region_constraint,
         )
 
     def _pick_valid_value(
@@ -190,6 +229,24 @@ class AgentService:
         if fallback_value in allowed_values:
             return fallback_value
         return None
+
+    def _apply_region_constraint(
+        self,
+        destinations: List[DestinationResult],
+        region_constraint: Optional[str],
+    ) -> List[DestinationResult]:
+        if not region_constraint:
+            return destinations
+
+        allowed_countries = REGION_COUNTRY_MAP.get(region_constraint)
+        if not allowed_countries:
+            return destinations
+
+        return [
+            destination
+            for destination in destinations
+            if destination.destination_country in allowed_countries
+        ]
 
     def _pick_numeric_value(
         self,
@@ -205,6 +262,12 @@ class AgentService:
 
 def humanize_trip_tag(trip_tag: str) -> str:
     return trip_tag.replace("_", " ")
+
+
+def humanize_region_constraint(region_constraint: Optional[str]) -> Optional[str]:
+    if region_constraint == "southern_europe":
+        return "Southern Europe"
+    return None
 
 
 def merge_unique_terms(*term_groups: List[str]) -> List[str]:
@@ -256,8 +319,56 @@ TEXTS = {
         "nl": "Ik heb je vraag geinterpreteerd als {filter_summary}. Hier zijn een paar passende bestemmingen: {destination_summary}.",
         "fr": "J'ai interprete votre demande comme {filter_summary}. Voici quelques destinations correspondantes : {destination_summary}.",
     },
+    "query_understanding": {
+        "en": "You are looking for {filter_summary}.",
+        "nl": "Je zoekt naar {filter_summary}.",
+        "fr": "Vous cherchez {filter_summary}.",
+    },
 }
 
 
 def get_text(key: str, language: str) -> str:
     return TEXTS[key].get(language, TEXTS[key]["en"])
+
+
+def fallback_destination_description(destination: DestinationResult, language: str) -> str:
+    trip_tags = [tag.replace("_", " ") for tag in destination.trip_tags.split("|") if tag][:3]
+    best_seasons = [season.replace("_", " ") for season in destination.best_seasons.split("|") if season][:2]
+    tag_summary = ", ".join(trip_tags) if trip_tags else destination.price_category.replace("_", " ")
+    season_summary = " and ".join(best_seasons)
+
+    price_text = {
+        "budget": {
+            "en": "It is one of the more budget-friendly options in this shortlist.",
+            "nl": "Het is een van de meer budgetvriendelijke opties in deze selectie.",
+            "fr": "C'est l'une des options les plus abordables de cette selection.",
+        },
+        "mid_range": {
+            "en": "It offers a balanced mix of experience and price.",
+            "nl": "Het biedt een mooie balans tussen beleving en prijs.",
+            "fr": "Cette option offre un bon equilibre entre prix et experience.",
+        },
+        "premium": {
+            "en": "It sits at the more premium end of this shortlist.",
+            "nl": "Het zit aan de meer premium kant van deze selectie.",
+            "fr": "Cette destination se situe dans la partie plus premium de cette selection.",
+        },
+    }.get(destination.price_category, {})
+
+    if language == "nl":
+        return (
+            f"{destination.destination_name} past goed bij een reis gericht op {tag_summary}. "
+            f"{f'Vooral interessant in {season_summary}. ' if season_summary else ''}"
+            f"{price_text.get('nl', 'Het is een passende optie binnen deze selectie.')}"
+        )
+    if language == "fr":
+        return (
+            f"{destination.destination_name} convient bien pour un voyage axe sur {tag_summary}. "
+            f"{f'Particulierement interessant en {season_summary}. ' if season_summary else ''}"
+            f"{price_text.get('fr', 'C est une option coherente dans cette selection.')}"
+        )
+    return (
+        f"{destination.destination_name} is a good fit for a trip focused on {tag_summary}. "
+        f"{f'It is especially attractive in {season_summary}. ' if season_summary else ''}"
+        f"{price_text.get('en', 'It is a solid option within this shortlist.')}"
+    )

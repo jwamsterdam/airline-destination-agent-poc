@@ -42,6 +42,11 @@ class AgentParserTests(unittest.TestCase):
         self.assertEqual(parsed.filters.trip_tag, "beach")
         self.assertIn("beach", parsed.matched_terms)
 
+    def test_detects_southern_europe_region_constraint(self) -> None:
+        parsed = parse_user_query("I want to party in South Europe")
+
+        self.assertEqual(parsed.region_constraint, "southern_europe")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -145,7 +145,10 @@
               data-i18n-placeholder="composerPlaceholder"
               required
             ></textarea>
-            <button type="submit" id="send-button" data-i18n="search">Search</button>
+            <button type="submit" id="send-button">
+              <span class="button-spinner" id="button-spinner" aria-hidden="true"></span>
+              <span id="send-button-label" data-i18n="search">Search</span>
+            </button>
           </div>
           <p class="composer-hint" data-i18n="composerHint">
             The chat keeps lightweight conversation history and uses the structured GraphQL retrieval layer underneath.

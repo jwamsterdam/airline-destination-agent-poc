@@ -6,6 +6,7 @@ const resultsPanel = document.getElementById("results-panel");
 const debugPills = document.getElementById("debug-pills");
 const statusPill = document.getElementById("status-pill");
 const sendButton = document.getElementById("send-button");
+const sendButtonLabel = document.getElementById("send-button-label");
 const promptChips = document.querySelectorAll(".prompt-chip");
 const modeSelect = document.getElementById("mode-select");
 const languageSelect = document.getElementById("language-select");
@@ -19,6 +20,7 @@ const conversationHistory = [];
 let currentLanguage = "en";
 let currentMode = "demo";
 let assistantVisible = true;
+let showPromptPlaceholder = true;
 
 const translations = {
   en: {
@@ -67,6 +69,7 @@ const translations = {
     technical: "Technical",
     demo: "Demo",
     termLabel: "term",
+    summaryTitle: "Trip summary",
   },
   nl: {
     heroEyebrow: "Travel Recommendation PoC",
@@ -114,6 +117,7 @@ const translations = {
     technical: "Technisch",
     demo: "Demo",
     termLabel: "term",
+    summaryTitle: "Reissamenvatting",
   },
   fr: {
     heroEyebrow: "PoC de recommandation voyage",
@@ -161,6 +165,7 @@ const translations = {
     technical: "Technique",
     demo: "Demo",
     termLabel: "terme",
+    summaryTitle: "Resume du voyage",
   },
 };
 
@@ -178,6 +183,8 @@ chatForm.addEventListener("submit", async (event) => {
 
   appendMessage("user", message);
   messageInput.value = "";
+  showPromptPlaceholder = false;
+  updatePlaceholder();
   setBusyState(true);
 
   const requestPayload = {
@@ -200,14 +207,13 @@ chatForm.addEventListener("submit", async (event) => {
     }
 
     const payload = await response.json();
-    appendMessage("assistant", payload.answer);
     renderResults(payload);
     renderTechnicalTrace(requestPayload, payload);
     conversationHistory.push({ role: "user", content: message });
     conversationHistory.push({ role: "assistant", content: payload.answer });
     statusPill.textContent = t("ready");
   } catch (error) {
-    appendMessage("assistant", t("requestFailed"));
+    renderResults({ answer: t("requestFailed"), destinations: [], applied_filters: {}, matched_terms: [] });
     statusPill.textContent = t("error");
     console.error(error);
   } finally {
@@ -282,15 +288,19 @@ function renderResults(payload) {
   });
 
   const destinations = payload.destinations || [];
+    appendSummaryCard(payload.answer);
+
   if (!destinations.length) {
     resultsPanel.hidden = false;
-    const emptyCard = document.createElement("article");
-    emptyCard.className = "destination-card";
-    emptyCard.innerHTML = `
-      <h4>${t("noDestinationTitle")}</h4>
-      <p class="destination-subtitle">${t("noDestinationBody")}</p>
-    `;
-    destinationGrid.appendChild(emptyCard);
+    if (!payload.answer) {
+      const emptyCard = document.createElement("article");
+      emptyCard.className = "destination-card";
+      emptyCard.innerHTML = `
+        <h4>${t("noDestinationTitle")}</h4>
+        <p class="destination-subtitle">${t("noDestinationBody")}</p>
+      `;
+      destinationGrid.appendChild(emptyCard);
+    }
     return;
   }
 
@@ -301,6 +311,7 @@ function renderResults(payload) {
       <h4>${destination.destination_name}</h4>
       <p class="destination-subtitle">${destination.destination_country}</p>
       <div class="destination-price">${t("fromEur")} ${Math.round(destination.estimated_from_price_eur)}</div>
+      <p class="destination-description">${escapeHtml(destination.description || buildDestinationDescription(destination))}</p>
       <p class="destination-meta">${t("priceCategory")}: ${destination.price_category}</p>
       <p class="destination-tags">${t("tripTags")}: ${destination.trip_tags}</p>
       <p class="destination-tags">${t("bestSeasons")}: ${destination.best_seasons}</p>
@@ -311,6 +322,20 @@ function renderResults(payload) {
   resultsPanel.hidden = false;
 }
 
+function appendSummaryCard(summaryText) {
+  if (!summaryText) {
+    return;
+  }
+
+  const summaryCard = document.createElement("article");
+  summaryCard.className = "summary-card";
+  summaryCard.innerHTML = `
+    <h4>${t("summaryTitle")}</h4>
+    <p>${escapeHtml(summaryText)}</p>
+  `;
+  destinationGrid.appendChild(summaryCard);
+}
+
 function renderTechnicalTrace(requestPayload, responsePayload) {
   requestJson.textContent = prettyJson(requestPayload);
   responseJson.textContent = responsePayload ? prettyJson(responsePayload) : "";
@@ -318,7 +343,8 @@ function renderTechnicalTrace(requestPayload, responsePayload) {
 
 function setBusyState(isBusy) {
   sendButton.disabled = isBusy;
-  sendButton.textContent = isBusy ? t("searching") : t("search");
+  sendButton.classList.toggle("is-loading", isBusy);
+  sendButtonLabel.textContent = isBusy ? t("searching") : t("search");
   statusPill.textContent = isBusy ? t("thinking") : t("ready");
 }
 
@@ -339,7 +365,7 @@ function applyTranslations() {
   document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
     const key = element.dataset.i18nPlaceholder;
     if (translations[currentLanguage][key]) {
-      element.setAttribute("placeholder", translations[currentLanguage][key]);
+      element.setAttribute("placeholder", showPromptPlaceholder ? translations[currentLanguage][key] : "");
     }
   });
 
@@ -370,4 +396,54 @@ function prettyJson(value) {
 
 function t(key) {
   return translations[currentLanguage][key] || translations.en[key] || key;
+}
+
+function updatePlaceholder() {
+  messageInput.setAttribute(
+    "placeholder",
+    showPromptPlaceholder ? t("composerPlaceholder") : "",
+  );
+}
+
+function buildDestinationDescription(destination) {
+  const tags = (destination.trip_tags || "").split("|").filter(Boolean).slice(0, 3);
+  const seasons = (destination.best_seasons || "").split("|").filter(Boolean).slice(0, 2);
+  const priceMap = {
+    budget: {
+      en: "This is one of the most budget-friendly options in the current result set.",
+      nl: "Dit is een van de meest budgetvriendelijke opties in deze selectie.",
+      fr: "C'est l'une des options les plus abordables de cette selection.",
+    },
+    mid_range: {
+      en: "This option balances price and experience nicely for a broad audience.",
+      nl: "Deze optie biedt een mooie balans tussen prijs en ervaring.",
+      fr: "Cette option offre un bon equilibre entre prix et experience.",
+    },
+    premium: {
+      en: "This is a more premium option with room for a richer trip experience.",
+      nl: "Dit is een wat premiumere optie met ruimte voor een rijkere reiservaring.",
+      fr: "C'est une option plus premium avec une experience plus riche.",
+    },
+  };
+
+  const tagText = tags.length ? tags.map(humanizeKey).join(", ") : humanizeKey(destination.price_category || "");
+  const seasonText = seasons.length ? seasons.map(humanizeKey).join(" and ") : "";
+  const priceText = (priceMap[destination.price_category] || priceMap.mid_range)[currentLanguage] || priceMap.mid_range.en;
+
+  if (currentLanguage === "nl") {
+    return `${destination.destination_name} voelt aan als een goede match voor ${tagText}. ${seasonText ? `Vooral sterk in ${seasonText}. ` : ""}${priceText}`;
+  }
+
+  if (currentLanguage === "fr") {
+    return `${destination.destination_name} convient bien pour un voyage axe sur ${tagText}. ${seasonText ? `Particulierement interessant en ${seasonText}. ` : ""}${priceText}`;
+  }
+
+  return `${destination.destination_name} is a strong fit for travelers looking for ${tagText}. ${seasonText ? `It works especially well in ${seasonText}. ` : ""}${priceText}`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }

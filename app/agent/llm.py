@@ -32,6 +32,19 @@ If no destinations are supplied, explain that no matches were found and suggest 
 Do not invent destinations or prices.
 """.strip()
 
+DESTINATION_DESCRIPTION_SYSTEM_PROMPT = """
+You are writing short destination recommendation blurbs for cards in a travel demo.
+Use only the supplied destination data and the original traveler query.
+
+Rules:
+- Return one short paragraph per destination, in the same order as provided.
+- Keep each description concrete and traveler-centric, not generic metadata paraphrasing.
+- Explain why this destination fits the user's stated intent.
+- Mention atmosphere, trip style, and one or two relevant strengths implied by the tags and seasons.
+- Do not invent facts outside the supplied fields.
+- Match the requested response language.
+""".strip()
+
 LANGUAGE_NAMES = {
     "en": "English",
     "nl": "Dutch",
@@ -49,6 +62,20 @@ class LLMParsedQuery(BaseModel):
     trip_tag: Optional[str] = None
     season: Optional[str] = None
     matched_terms: List[str] = []
+    region_constraint: Optional[str] = None
+
+
+class DestinationDescriptionItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    destination_name: str
+    description: str
+
+
+class DestinationDescriptionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: List[DestinationDescriptionItem]
 
 
 class OpenAITravelInterpreter:
@@ -121,6 +148,34 @@ class OpenAITravelInterpreter:
         )
         return response.output_text.strip()
 
+    def describe_destinations(
+        self,
+        original_query: str,
+        applied_filters: DestinationFilters,
+        destinations: List[DestinationResult],
+        response_language: Optional[str] = None,
+    ) -> List[DestinationDescriptionItem]:
+        if self._client is None:
+            raise RuntimeError(self._init_error or "OpenAI client is unavailable.")
+
+        prompt = build_destination_description_prompt(
+            original_query=original_query,
+            applied_filters=applied_filters,
+            destinations=destinations,
+            response_language=response_language,
+        )
+        response = self._client.responses.parse(
+            model=self.model,
+            input=build_messages(
+                system_prompt=DESTINATION_DESCRIPTION_SYSTEM_PROMPT,
+                message=prompt,
+                chat_history=[],
+            ),
+            text_format=DestinationDescriptionResponse,
+        )
+        parsed = response.output_parsed
+        return parsed.items
+
 
 def build_messages(system_prompt: str, message: str, chat_history: List[ChatMessage]) -> List[dict]:
     messages = [{"role": "system", "content": system_prompt}]
@@ -140,6 +195,21 @@ def build_summary_prompt(
         "original_query": original_query,
         "applied_filters": applied_filters.model_dump(exclude_none=True),
         "destinations": [destination.model_dump() for destination in destinations],
+        "response_language": LANGUAGE_NAMES.get(response_language or "en", "English"),
+    }
+    return json.dumps(payload, ensure_ascii=True, indent=2)
+
+
+def build_destination_description_prompt(
+    original_query: str,
+    applied_filters: DestinationFilters,
+    destinations: List[DestinationResult],
+    response_language: Optional[str] = None,
+) -> str:
+    payload = {
+        "original_query": original_query,
+        "applied_filters": applied_filters.model_dump(exclude_none=True),
+        "destinations": [destination.model_dump(exclude_none=True) for destination in destinations],
         "response_language": LANGUAGE_NAMES.get(response_language or "en", "English"),
     }
     return json.dumps(payload, ensure_ascii=True, indent=2)

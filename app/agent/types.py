@@ -48,6 +48,7 @@ class DestinationResult(BaseModel):
     price_category: str
     trip_tags: str
     best_seasons: str
+    description: Optional[str] = None
 
 
 class AgentQueryRequest(BaseModel):
@@ -74,6 +75,7 @@ class ParsedQuery(BaseModel):
 
     filters: DestinationFilters
     matched_terms: List[str]
+    region_constraint: Optional[str] = None
 
 
 class LLMAvailability(BaseModel):

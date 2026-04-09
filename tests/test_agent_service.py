@@ -82,6 +82,9 @@ class AgentServiceTests(unittest.TestCase):
             }
         )
         interpreter.summarize_results.return_value = "Malaga and Valencia are strong sunny summer fits."
+        interpreter.describe_destinations.return_value = [
+            Mock(destination_name="Malaga", description="Malaga is a sunny coastal match with a lively atmosphere.")
+        ]
         fetcher = Mock(
             return_value=[
                 DestinationResult(
@@ -108,8 +111,13 @@ class AgentServiceTests(unittest.TestCase):
 
         self.assertEqual(response.applied_filters.country, "Spain")
         self.assertEqual(response.answer, "Malaga and Valencia are strong sunny summer fits.")
+        self.assertEqual(
+            response.destinations[0].description,
+            "Malaga is a sunny coastal match with a lively atmosphere.",
+        )
         interpreter.parse_query.assert_called_once()
         interpreter.summarize_results.assert_called_once()
+        interpreter.describe_destinations.assert_called_once()
         self.assertEqual(interpreter.summarize_results.call_args.kwargs["response_language"], "nl")
 
     def test_invalid_llm_filter_values_fall_back_to_rules_parser(self) -> None:
@@ -153,6 +161,40 @@ class AgentServiceTests(unittest.TestCase):
         response = service.run("Surprise me with something nice", response_language="nl")
 
         self.assertIn("Ik kon je vraag", response.answer)
+
+    def test_region_constraint_filters_out_non_matching_countries(self) -> None:
+        interpreter = Mock()
+        interpreter.is_available.return_value = False
+        service = AgentService(
+            "http://example.test/graphql",
+            destination_fetcher=Mock(
+                return_value=[
+                    DestinationResult(
+                        destination_name="Barcelona",
+                        destination_country="Spain",
+                        estimated_from_price_eur=210.0,
+                        price_category="premium",
+                        trip_tags="citytrip|nightlife",
+                        best_seasons="spring|summer",
+                    ),
+                    DestinationResult(
+                        destination_name="Hurghada",
+                        destination_country="Egypt",
+                        estimated_from_price_eur=199.0,
+                        price_category="mid_range",
+                        trip_tags="beach|sunny_escape",
+                        best_seasons="spring|summer|autumn",
+                    ),
+                ]
+            ),
+            query_interpreter=interpreter,
+        )
+
+        response = service.run("I want to party in South Europe")
+
+        self.assertEqual(len(response.destinations), 1)
+        self.assertEqual(response.destinations[0].destination_country, "Spain")
+        self.assertIn("You are looking for Southern Europe", response.answer)
 
 
 if __name__ == "__main__":

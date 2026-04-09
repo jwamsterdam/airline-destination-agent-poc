@@ -108,6 +108,17 @@ MIN_PRICE_PATTERNS = (
     r"\bvanaf\s+(\d+)\b",
 )
 
+REGION_KEYWORDS = {
+    "southern_europe": (
+        "south europe",
+        "southern europe",
+        "zuid europa",
+        "zuid europa",
+        "europe du sud",
+        "sud europe",
+    ),
+}
+
 
 def parse_user_query(message: str) -> ParsedQuery:
     normalized_message = normalize_text(message)
@@ -125,7 +136,11 @@ def parse_user_query(message: str) -> ParsedQuery:
     if filters.max_price is None:
         filters.max_price = detect_generic_max_price(normalized_message, matched_terms)
 
-    return ParsedQuery(filters=filters, matched_terms=matched_terms)
+    return ParsedQuery(
+        filters=filters,
+        matched_terms=matched_terms,
+        region_constraint=detect_region_constraint(normalized_message, matched_terms),
+    )
 
 
 def normalize_text(message: str) -> str:
@@ -196,6 +211,15 @@ def detect_trip_tag(normalized_message: str, matched_terms: List[str]) -> Option
         if trip_tag in tag_matches:
             add_unique(matched_terms, tag_matches[trip_tag])
             return trip_tag
+    return None
+
+
+def detect_region_constraint(normalized_message: str, matched_terms: List[str]) -> Optional[str]:
+    for region_key, keywords in REGION_KEYWORDS.items():
+        for keyword in keywords:
+            if contains_term(normalized_message, keyword):
+                add_unique(matched_terms, keyword)
+                return region_key
     return None
 
 

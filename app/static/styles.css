@@ -325,6 +325,28 @@ select {
   gap: 14px;
 }
 
+.summary-card {
+  grid-column: 1 / -1;
+  padding: 22px;
+  border: 1px solid rgba(0, 71, 52, 0.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(246, 255, 250, 0.96)),
+    linear-gradient(135deg, rgba(0, 214, 108, 0.08), rgba(255, 79, 160, 0.06));
+}
+
+.summary-card h4 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+}
+
+.summary-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .destination-card {
   padding: 18px;
   border: 1px solid rgba(0, 71, 52, 0.08);
@@ -347,6 +369,12 @@ select {
 
 .destination-subtitle {
   margin-bottom: 10px;
+}
+
+.destination-description {
+  margin: 10px 0 12px;
+  color: var(--text);
+  line-height: 1.55;
 }
 
 .destination-price {
@@ -440,6 +468,10 @@ textarea:focus {
 }
 
 #send-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   align-self: end;
   min-width: 132px;
   padding: 16px 20px;
@@ -463,6 +495,20 @@ textarea:focus {
   opacity: 0.72;
 }
 
+.button-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.34);
+  border-top-color: rgba(255, 255, 255, 0.96);
+  border-radius: 999px;
+  animation: spin 700ms linear infinite;
+  display: none;
+}
+
+#send-button.is-loading .button-spinner {
+  display: inline-block;
+}
+
 .composer-hint {
   margin: 10px 0 0;
   color: var(--muted);
@@ -477,6 +523,15 @@ textarea:focus {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 

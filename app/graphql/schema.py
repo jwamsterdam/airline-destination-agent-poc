@@ -1,3 +1,5 @@
+from typing import Optional
+
 import strawberry
 
 from app.db.models import Destination
@@ -23,10 +25,26 @@ class DestinationType:
 @strawberry.type
 class Query:
     @strawberry.field
-    def destinations(self) -> list[DestinationType]:
+    def destinations(
+        self,
+        country: Optional[str] = None,
+        max_price: Optional[float] = None,
+        min_price: Optional[float] = None,
+        price_category: Optional[str] = None,
+        trip_tag: Optional[str] = None,
+        season: Optional[str] = None,
+    ) -> list[DestinationType]:
         db = SessionLocal()
         try:
-            destinations = resolve_destinations(db)
+            destinations = resolve_destinations(
+                db,
+                country=country,
+                max_price=max_price,
+                min_price=min_price,
+                price_category=price_category,
+                trip_tag=trip_tag,
+                season=season,
+            )
             return [map_destination_to_graphql(destination) for destination in destinations]
         finally:
             db.close()

@@ -80,7 +80,7 @@ TRIP_TAG_KEYWORDS = {
     "family_friendly": ("family", "gezin", "kids", "family friendly"),
     "romantic": ("romantic", "romantisch"),
     "foodie": ("food", "foodie", "culinary", "eten"),
-    "nightlife": ("nightlife", "party", "uitgaan"),
+    "nightlife": ("nightlife", "party", "uitgaan", "feest", "feesten"),
     "island": ("island", "eiland"),
     "winter_holiday": (
         "ski",

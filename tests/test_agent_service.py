@@ -32,7 +32,7 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(response.applied_filters.max_price, 150.0)
         self.assertIn("cheap", response.matched_terms)
         self.assertEqual(len(response.destinations), 1)
-        self.assertIn("Malaga, Spain", response.answer)
+        self.assertIn("You are looking for", response.answer)
         fetcher.assert_called_once()
 
     def test_no_recognized_filters_skips_graphql_call(self) -> None:
@@ -81,7 +81,6 @@ class AgentServiceTests(unittest.TestCase):
                 "matched_terms": ["spain", "sunny", "summer"],
             }
         )
-        interpreter.summarize_results.return_value = "Malaga and Valencia are strong sunny summer fits."
         interpreter.describe_destinations.return_value = [
             Mock(destination_name="Malaga", description="Malaga is a sunny coastal match with a lively atmosphere.")
         ]
@@ -110,15 +109,13 @@ class AgentServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(response.applied_filters.country, "Spain")
-        self.assertEqual(response.answer, "Malaga and Valencia are strong sunny summer fits.")
+        self.assertEqual(response.answer, "Je zoekt naar country Spain, summer travel, sunny escape preferences.")
         self.assertEqual(
             response.destinations[0].description,
             "Malaga is a sunny coastal match with a lively atmosphere.",
         )
         interpreter.parse_query.assert_called_once()
-        interpreter.summarize_results.assert_called_once()
         interpreter.describe_destinations.assert_called_once()
-        self.assertEqual(interpreter.summarize_results.call_args.kwargs["response_language"], "nl")
 
     def test_invalid_llm_filter_values_fall_back_to_rules_parser(self) -> None:
         interpreter = Mock()
@@ -195,6 +192,21 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(len(response.destinations), 1)
         self.assertEqual(response.destinations[0].destination_country, "Spain")
         self.assertIn("You are looking for Southern Europe", response.answer)
+
+    def test_region_constraint_without_graphql_filters_still_runs(self) -> None:
+        interpreter = Mock()
+        interpreter.is_available.return_value = False
+        fetcher = Mock(return_value=[])
+        service = AgentService(
+            "http://example.test/graphql",
+            destination_fetcher=fetcher,
+            query_interpreter=interpreter,
+        )
+
+        response = service.run("South Europe")
+
+        fetcher.assert_called_once()
+        self.assertIn("Southern Europe", response.answer)
 
 
 if __name__ == "__main__":

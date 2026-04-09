@@ -47,6 +47,11 @@ class AgentParserTests(unittest.TestCase):
 
         self.assertEqual(parsed.region_constraint, "southern_europe")
 
+    def test_dutch_party_intent_maps_to_nightlife(self) -> None:
+        parsed = parse_user_query("Ik zoek een plek om te feesten")
+
+        self.assertEqual(parsed.filters.trip_tag, "nightlife")
+
 
 if __name__ == "__main__":
     unittest.main()

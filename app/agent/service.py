@@ -51,7 +51,7 @@ class AgentService:
         parsed_query = self._parse_query(message=message, chat_history=chat_history or [])
         applied_filters = parsed_query.filters
 
-        if not applied_filters.has_filters():
+        if not applied_filters.has_filters() and not parsed_query.region_constraint:
             return AgentQueryResponse(
                 original_query=message,
                 applied_filters=applied_filters,

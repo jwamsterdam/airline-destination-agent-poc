@@ -16,6 +16,7 @@ ALLOWED_COUNTRIES = set(COUNTRY_ALIASES.values())
 ALLOWED_PRICE_CATEGORIES = {"budget", "mid_range", "premium"}
 ALLOWED_SEASONS = set(SEASON_KEYWORDS.keys())
 ALLOWED_TRIP_TAGS = set(TRIP_TAG_PRIORITY)
+SUPPORTED_RESPONSE_LANGUAGES = {"en", "nl", "fr"}
 
 
 class AgentService:
@@ -41,7 +42,9 @@ class AgentService:
         message: str,
         limit: Optional[int] = None,
         chat_history: Optional[List[ChatMessage]] = None,
+        response_language: Optional[str] = None,
     ) -> AgentQueryResponse:
+        selected_language = normalize_response_language(response_language)
         parsed_query = self._parse_query(message=message, chat_history=chat_history or [])
         applied_filters = parsed_query.filters
 
@@ -50,10 +53,7 @@ class AgentService:
                 original_query=message,
                 applied_filters=applied_filters,
                 matched_terms=parsed_query.matched_terms,
-                answer=(
-                    "I could not confidently map your request to the available filters yet. "
-                    "Try mentioning a season, country, budget, or trip type such as beach or city trip."
-                ),
+                answer=get_text("clarification", selected_language),
                 destinations=[],
             )
 
@@ -65,6 +65,7 @@ class AgentService:
             applied_filters=applied_filters,
             destinations=trimmed_destinations,
             chat_history=chat_history or [],
+            response_language=selected_language,
         )
 
         return AgentQueryResponse(
@@ -102,6 +103,7 @@ class AgentService:
         applied_filters: DestinationFilters,
         destinations: List[DestinationResult],
         chat_history: List[ChatMessage],
+        response_language: str,
     ) -> str:
         if destinations and self.llm_enabled and self.query_interpreter.is_available():
             try:
@@ -110,6 +112,7 @@ class AgentService:
                     applied_filters=applied_filters,
                     destinations=destinations,
                     chat_history=chat_history,
+                    response_language=response_language,
                 )
             except Exception:
                 pass
@@ -117,19 +120,16 @@ class AgentService:
         filter_summary = self._describe_filters(applied_filters)
 
         if not destinations:
-            return (
-                f"I interpreted your request as {filter_summary}, but no destinations matched those filters. "
-                "Try relaxing the budget, season, or trip type."
-            )
+            return get_text("no_results", response_language).format(filter_summary=filter_summary)
 
         destination_summary = ", ".join(
             f"{destination.destination_name}, {destination.destination_country} "
             f"(from EUR {destination.estimated_from_price_eur:.0f})"
             for destination in destinations
         )
-        return (
-            f"I interpreted your request as {filter_summary}. "
-            f"Here are some matching destinations: {destination_summary}."
+        return get_text("matches_found", response_language).format(
+            filter_summary=filter_summary,
+            destination_summary=destination_summary,
         )
 
     def _describe_filters(self, applied_filters: DestinationFilters) -> str:
@@ -214,3 +214,50 @@ def merge_unique_terms(*term_groups: List[str]) -> List[str]:
             if term not in merged_terms:
                 merged_terms.append(term)
     return merged_terms
+
+
+def normalize_response_language(response_language: Optional[str]) -> str:
+    if response_language in SUPPORTED_RESPONSE_LANGUAGES:
+        return response_language
+    return "en"
+
+
+TEXTS = {
+    "clarification": {
+        "en": (
+            "I could not confidently map your request to the available filters yet. "
+            "Try mentioning a season, country, budget, or trip type such as beach or city trip."
+        ),
+        "nl": (
+            "Ik kon je vraag nog niet betrouwbaar omzetten naar de beschikbare filters. "
+            "Noem bijvoorbeeld een seizoen, land, budget of type reis zoals strand of stedentrip."
+        ),
+        "fr": (
+            "Je ne peux pas encore traduire votre demande de maniere fiable vers les filtres disponibles. "
+            "Mentionnez par exemple une saison, un pays, un budget ou un type de voyage comme plage ou city trip."
+        ),
+    },
+    "no_results": {
+        "en": (
+            "I interpreted your request as {filter_summary}, but no destinations matched those filters. "
+            "Try relaxing the budget, season, or trip type."
+        ),
+        "nl": (
+            "Ik heb je vraag geinterpreteerd als {filter_summary}, maar er zijn geen bestemmingen gevonden die hierbij passen. "
+            "Probeer het budget, seizoen of type reis wat ruimer te maken."
+        ),
+        "fr": (
+            "J'ai interprete votre demande comme {filter_summary}, mais aucune destination ne correspond a ces filtres. "
+            "Essayez d'elargir un peu le budget, la saison ou le type de voyage."
+        ),
+    },
+    "matches_found": {
+        "en": "I interpreted your request as {filter_summary}. Here are some matching destinations: {destination_summary}.",
+        "nl": "Ik heb je vraag geinterpreteerd als {filter_summary}. Hier zijn een paar passende bestemmingen: {destination_summary}.",
+        "fr": "J'ai interprete votre demande comme {filter_summary}. Voici quelques destinations correspondantes : {destination_summary}.",
+    },
+}
+
+
+def get_text(key: str, language: str) -> str:
+    return TEXTS[key].get(language, TEXTS[key]["en"])

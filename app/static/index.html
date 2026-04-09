@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Airline Destination Agent</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <aside class="hero-panel" id="hero-panel">
+        <div class="hero-copy">
+          <p class="eyebrow" data-i18n="heroEyebrow">Travel Recommendation PoC</p>
+          <h1 data-i18n="heroTitle">Find the right destination through conversation, not filter menus.</h1>
+          <p class="hero-text" data-i18n="heroText">
+            This demo uses an LLM to interpret travel intent and GraphQL to retrieve structured destination matches.
+          </p>
+        </div>
+
+        <div class="signal-card">
+          <p class="signal-label" data-i18n="howItWorksLabel">How it works</p>
+          <ul class="signal-list">
+            <li data-i18n="howItWorks1">Understand traveler intent</li>
+            <li data-i18n="howItWorks2">Translate it into filters</li>
+            <li data-i18n="howItWorks3">Query structured destination data</li>
+            <li data-i18n="howItWorks4">Explain the best matches clearly</li>
+          </ul>
+        </div>
+
+        <div class="prompt-cluster">
+          <p class="cluster-label" data-i18n="promptLabel">Try one of these</p>
+          <div class="prompt-list">
+            <button
+              class="prompt-chip"
+              data-prompt-en="I want a cheap sunny destination in summer"
+              data-prompt-nl="Ik wil een goedkope zonnige bestemming in de zomer"
+              data-prompt-fr="Je veux une destination ensoleillee et abordable en ete"
+              data-i18n="prompt1"
+            >
+              Cheap sunny trip in summer
+            </button>
+            <button
+              class="prompt-chip"
+              data-prompt-en="We want a family friendly beach holiday in Spain"
+              data-prompt-nl="We willen een familievriendelijke strandvakantie in Spanje"
+              data-prompt-fr="Nous voulons des vacances a la plage en Espagne pour toute la famille"
+              data-i18n="prompt2"
+            >
+              Family beach holiday in Spain
+            </button>
+            <button
+              class="prompt-chip"
+              data-prompt-en="I want a romantic city trip in autumn"
+              data-prompt-nl="Ik wil een romantische stedentrip in de herfst"
+              data-prompt-fr="Je veux un city trip romantique en automne"
+              data-i18n="prompt3"
+            >
+              Romantic city trip in autumn
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-header">
+          <div class="chat-header-copy">
+            <p class="eyebrow" data-i18n="chatEyebrow">Hybrid Agent</p>
+            <h2 data-i18n="chatTitle">Destination chat</h2>
+          </div>
+          <div class="header-controls">
+            <label class="select-control">
+              <span data-i18n="languageLabel">Language</span>
+              <select id="language-select" aria-label="Language">
+                <option value="en">English</option>
+                <option value="nl">Nederlands</option>
+                <option value="fr">Francais</option>
+              </select>
+            </label>
+            <label class="select-control">
+              <span data-i18n="modeLabel">Mode</span>
+              <select id="mode-select" aria-label="Mode">
+                <option value="demo">Demo</option>
+                <option value="technical">Technical</option>
+              </select>
+            </label>
+            <button class="ghost-toggle" id="assistant-toggle" type="button" data-i18n="hideAssistant">
+              Hide assistant
+            </button>
+            <div class="status-pill" id="status-pill">Ready</div>
+          </div>
+        </header>
+
+        <section class="chat-thread" id="chat-thread" aria-live="polite">
+          <article class="message assistant opening-message">
+            <div class="message-meta" data-i18n="assistantLabel">Assistant</div>
+            <p data-i18n="openingMessage">
+              Tell me what kind of trip you want and I’ll turn that into destination filters, search the dataset,
+              and recommend a few matching places.
+            </p>
+          </article>
+        </section>
+
+        <section class="results-panel" id="results-panel" hidden>
+          <div class="results-header">
+            <div>
+              <p class="eyebrow" data-i18n="resultsEyebrow">Retrieved matches</p>
+              <h3 data-i18n="resultsTitle">Recommended destinations</h3>
+            </div>
+            <div class="debug-pills" id="debug-pills"></div>
+          </div>
+          <div class="destination-grid" id="destination-grid"></div>
+        </section>
+
+        <section class="technical-panel" id="technical-panel" hidden>
+          <div class="results-header">
+            <div>
+              <p class="eyebrow" data-i18n="technicalEyebrow">Technical trace</p>
+              <h3 data-i18n="technicalTitle">API calls and responses</h3>
+            </div>
+          </div>
+          <div class="technical-grid">
+            <article class="technical-card">
+              <div class="technical-card-header">
+                <span data-i18n="requestTitle">Request payload</span>
+              </div>
+              <pre id="request-json"></pre>
+            </article>
+            <article class="technical-card">
+              <div class="technical-card-header">
+                <span data-i18n="responseTitle">Response payload</span>
+              </div>
+              <pre id="response-json"></pre>
+            </article>
+          </div>
+        </section>
+
+        <form class="composer" id="chat-form">
+          <label class="composer-label" for="message-input" data-i18n="composerLabel">Ask for a destination</label>
+          <div class="composer-row">
+            <textarea
+              id="message-input"
+              name="message"
+              rows="3"
+              placeholder="Example: I want a warm beach destination under 180 euro in autumn"
+              data-i18n-placeholder="composerPlaceholder"
+              required
+            ></textarea>
+            <button type="submit" id="send-button" data-i18n="search">Search</button>
+          </div>
+          <p class="composer-hint" data-i18n="composerHint">
+            The chat keeps lightweight conversation history and uses the structured GraphQL retrieval layer underneath.
+          </p>
+        </form>
+      </main>
+    </div>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

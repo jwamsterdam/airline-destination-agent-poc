@@ -103,12 +103,14 @@ class AgentServiceTests(unittest.TestCase):
         response = service.run(
             "I want a sunny destination in Spain",
             chat_history=[ChatMessage(role="user", content="I want somewhere warm")],
+            response_language="nl",
         )
 
         self.assertEqual(response.applied_filters.country, "Spain")
         self.assertEqual(response.answer, "Malaga and Valencia are strong sunny summer fits.")
         interpreter.parse_query.assert_called_once()
         interpreter.summarize_results.assert_called_once()
+        self.assertEqual(interpreter.summarize_results.call_args.kwargs["response_language"], "nl")
 
     def test_invalid_llm_filter_values_fall_back_to_rules_parser(self) -> None:
         interpreter = Mock()
@@ -138,6 +140,19 @@ class AgentServiceTests(unittest.TestCase):
         self.assertEqual(response.applied_filters.trip_tag, "sunny_escape")
         self.assertIn("no destinations matched", response.answer)
         interpreter.summarize_results.assert_not_called()
+
+    def test_fallback_messages_are_localized(self) -> None:
+        interpreter = Mock()
+        interpreter.is_available.return_value = False
+        service = AgentService(
+            "http://example.test/graphql",
+            destination_fetcher=Mock(return_value=[]),
+            query_interpreter=interpreter,
+        )
+
+        response = service.run("Surprise me with something nice", response_language="nl")
+
+        self.assertIn("Ik kon je vraag", response.answer)
 
 
 if __name__ == "__main__":

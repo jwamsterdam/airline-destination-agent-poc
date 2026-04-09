@@ -43,6 +43,7 @@ class AgentEndpointTests(unittest.TestCase):
                 json={
                     "message": "I want a cheap sunny destination in summer",
                     "chat_history": [{"role": "user", "content": "I want something for July"}],
+                    "response_language": "nl",
                 },
             )
 

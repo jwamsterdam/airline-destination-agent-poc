@@ -32,6 +32,12 @@ If no destinations are supplied, explain that no matches were found and suggest 
 Do not invent destinations or prices.
 """.strip()
 
+LANGUAGE_NAMES = {
+    "en": "English",
+    "nl": "Dutch",
+    "fr": "French",
+}
+
 
 class LLMParsedQuery(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -94,6 +100,7 @@ class OpenAITravelInterpreter:
         applied_filters: DestinationFilters,
         destinations: List[DestinationResult],
         chat_history: Optional[List[ChatMessage]] = None,
+        response_language: Optional[str] = None,
     ) -> str:
         if self._client is None:
             raise RuntimeError(self._init_error or "OpenAI client is unavailable.")
@@ -102,6 +109,7 @@ class OpenAITravelInterpreter:
             original_query=original_query,
             applied_filters=applied_filters,
             destinations=destinations,
+            response_language=response_language,
         )
         response = self._client.responses.create(
             model=self.model,
@@ -126,10 +134,12 @@ def build_summary_prompt(
     original_query: str,
     applied_filters: DestinationFilters,
     destinations: List[DestinationResult],
+    response_language: Optional[str] = None,
 ) -> str:
     payload = {
         "original_query": original_query,
         "applied_filters": applied_filters.model_dump(exclude_none=True),
         "destinations": [destination.model_dump() for destination in destinations],
+        "response_language": LANGUAGE_NAMES.get(response_language or "en", "English"),
     }
     return json.dumps(payload, ensure_ascii=True, indent=2)

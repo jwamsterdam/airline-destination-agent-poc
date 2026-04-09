@@ -56,6 +56,7 @@ class AgentQueryRequest(BaseModel):
     message: str
     limit: Optional[int] = Field(default=None, ge=1, le=10)
     chat_history: List[ChatMessage] = Field(default_factory=list)
+    response_language: Optional[str] = None
 
 
 class AgentQueryResponse(BaseModel):

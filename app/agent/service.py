@@ -1,7 +1,7 @@
 from typing import Callable, List, Optional
 
 from app.agent.llm import OpenAITravelInterpreter
-from app.agent.parser import parse_user_query
+from app.agent.parser import COUNTRY_ALIASES, SEASON_KEYWORDS, TRIP_TAG_PRIORITY, parse_user_query
 from app.agent.tool import get_destinations
 from app.agent.types import (
     AgentQueryResponse,
@@ -11,6 +11,11 @@ from app.agent.types import (
     LLMAvailability,
     ParsedQuery,
 )
+
+ALLOWED_COUNTRIES = set(COUNTRY_ALIASES.values())
+ALLOWED_PRICE_CATEGORIES = {"budget", "mid_range", "premium"}
+ALLOWED_SEASONS = set(SEASON_KEYWORDS.keys())
+ALLOWED_TRIP_TAGS = set(TRIP_TAG_PRIORITY)
 
 
 class AgentService:
@@ -81,12 +86,15 @@ class AgentService:
         return LLMAvailability(enabled=True)
 
     def _parse_query(self, message: str, chat_history: List[ChatMessage]) -> ParsedQuery:
+        rules_parsed = parse_user_query(message)
+
         if self.llm_enabled and self.query_interpreter.is_available():
             try:
-                return self.query_interpreter.parse_query(message=message, chat_history=chat_history)
+                llm_parsed = self.query_interpreter.parse_query(message=message, chat_history=chat_history)
+                return self._merge_with_rule_fallback(llm_parsed=llm_parsed, rules_parsed=rules_parsed)
             except Exception:
-                return parse_user_query(message)
-        return parse_user_query(message)
+                return rules_parsed
+        return rules_parsed
 
     def _compose_answer(
         self,
@@ -95,7 +103,7 @@ class AgentService:
         destinations: List[DestinationResult],
         chat_history: List[ChatMessage],
     ) -> str:
-        if self.llm_enabled and self.query_interpreter.is_available():
+        if destinations and self.llm_enabled and self.query_interpreter.is_available():
             try:
                 return self.query_interpreter.summarize_results(
                     original_query=original_query,
@@ -145,6 +153,64 @@ class AgentService:
 
         return ", ".join(descriptions)
 
+    def _merge_with_rule_fallback(
+        self,
+        llm_parsed: ParsedQuery,
+        rules_parsed: ParsedQuery,
+    ) -> ParsedQuery:
+        llm_filters = llm_parsed.filters
+        rule_filters = rules_parsed.filters
+
+        merged_filters = DestinationFilters(
+            country=self._pick_valid_value(llm_filters.country, rule_filters.country, ALLOWED_COUNTRIES),
+            min_price=self._pick_numeric_value(llm_filters.min_price, rule_filters.min_price),
+            max_price=self._pick_numeric_value(llm_filters.max_price, rule_filters.max_price),
+            price_category=self._pick_valid_value(
+                llm_filters.price_category,
+                rule_filters.price_category,
+                ALLOWED_PRICE_CATEGORIES,
+            ),
+            trip_tag=self._pick_valid_value(llm_filters.trip_tag, rule_filters.trip_tag, ALLOWED_TRIP_TAGS),
+            season=self._pick_valid_value(llm_filters.season, rule_filters.season, ALLOWED_SEASONS),
+        )
+
+        return ParsedQuery(
+            filters=merged_filters,
+            matched_terms=merge_unique_terms(llm_parsed.matched_terms, rules_parsed.matched_terms),
+        )
+
+    def _pick_valid_value(
+        self,
+        llm_value: Optional[str],
+        fallback_value: Optional[str],
+        allowed_values: set,
+    ) -> Optional[str]:
+        if llm_value in allowed_values:
+            return llm_value
+        if fallback_value in allowed_values:
+            return fallback_value
+        return None
+
+    def _pick_numeric_value(
+        self,
+        llm_value: Optional[float],
+        fallback_value: Optional[float],
+    ) -> Optional[float]:
+        if llm_value is not None and llm_value >= 0:
+            return llm_value
+        if fallback_value is not None and fallback_value >= 0:
+            return fallback_value
+        return None
+
 
 def humanize_trip_tag(trip_tag: str) -> str:
     return trip_tag.replace("_", " ")
+
+
+def merge_unique_terms(*term_groups: List[str]) -> List[str]:
+    merged_terms: List[str] = []
+    for term_group in term_groups:
+        for term in term_group:
+            if term not in merged_terms:
+                merged_terms.append(term)
+    return merged_terms

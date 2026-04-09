@@ -110,6 +110,35 @@ class AgentServiceTests(unittest.TestCase):
         interpreter.parse_query.assert_called_once()
         interpreter.summarize_results.assert_called_once()
 
+    def test_invalid_llm_filter_values_fall_back_to_rules_parser(self) -> None:
+        interpreter = Mock()
+        interpreter.is_available.return_value = True
+        interpreter.parse_query.return_value = ParsedQuery.model_validate(
+            {
+                "filters": {
+                    "price_category": "cheap",
+                    "trip_tag": "sunny_escape",
+                    "season": "summer",
+                },
+                "matched_terms": ["cheap", "sunny", "summer"],
+            }
+        )
+        interpreter.summarize_results.return_value = "Fallback summary."
+        fetcher = Mock(return_value=[])
+        service = AgentService(
+            "http://example.test/graphql",
+            destination_fetcher=fetcher,
+            query_interpreter=interpreter,
+        )
+
+        response = service.run("I want a cheap sunny destination in summer")
+
+        self.assertEqual(response.applied_filters.max_price, 150.0)
+        self.assertIsNone(response.applied_filters.price_category)
+        self.assertEqual(response.applied_filters.trip_tag, "sunny_escape")
+        self.assertIn("no destinations matched", response.answer)
+        interpreter.summarize_results.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

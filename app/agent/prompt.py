@@ -1,4 +1,5 @@
-"""Prompt templates placeholder for the agent layer."""
+"""Prompt helpers for the hybrid agent layer."""
 
 
-SYSTEM_PROMPT = "Airline destination agent prompt placeholder."
+INTENT_PROMPT_NAME = "travel_intent_parser"
+SUMMARY_PROMPT_NAME = "travel_result_summarizer"

@@ -5,7 +5,7 @@ from app.db.session import Base
 
 
 class Destination(Base):
-    """Destination row mapped from the PoC Transavia dataset."""
+    """Destination row mapped from the PoC destination dataset."""
 
     __tablename__ = "destinations"
 

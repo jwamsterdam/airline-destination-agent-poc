@@ -4,7 +4,7 @@ from pathlib import Path
 from app.db.models import Destination
 from app.db.session import Base, SessionLocal, engine
 
-DEFAULT_CSV_PATH = Path("app/data/raw/transavia_destinations_cleaned_for_poc.csv")
+DEFAULT_CSV_PATH = Path("app/data/raw/destinations_cleaned_for_poc.csv")
 
 
 def load_destinations(csv_path: Path = DEFAULT_CSV_PATH) -> int:

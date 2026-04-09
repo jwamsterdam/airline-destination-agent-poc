@@ -23,10 +23,26 @@ class DestinationType:
 @strawberry.type
 class Query:
     @strawberry.field
-    def destinations(self) -> list[DestinationType]:
+    def destinations(
+        self,
+        country: str | None = None,
+        max_price: float | None = None,
+        min_price: float | None = None,
+        price_category: str | None = None,
+        trip_tag: str | None = None,
+        season: str | None = None,
+    ) -> list[DestinationType]:
         db = SessionLocal()
         try:
-            destinations = resolve_destinations(db)
+            destinations = resolve_destinations(
+                db,
+                country=country,
+                max_price=max_price,
+                min_price=min_price,
+                price_category=price_category,
+                trip_tag=trip_tag,
+                season=season,
+            )
             return [map_destination_to_graphql(destination) for destination in destinations]
         finally:
             db.close()

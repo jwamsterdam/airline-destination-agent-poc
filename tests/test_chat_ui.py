@@ -19,6 +19,9 @@ class ChatUiTests(unittest.TestCase):
         self.assertIn("mode-select", response.text)
         self.assertIn("language-select", response.text)
         self.assertIn("technical-panel", response.text)
+        self.assertIn("Structured retrieval call", response.text)
+        self.assertIn("MCP", response.text)
+        self.assertIn("Runtime flow from user to dataset and back", response.text)
 
     def test_static_stylesheet_is_served(self) -> None:
         response = self.client.get("/static/styles.css")

@@ -90,6 +90,82 @@
           </div>
         </header>
 
+        <section class="architecture-panel">
+          <div class="results-header architecture-header">
+            <div>
+              <p class="eyebrow" data-i18n="architectureEyebrow">Structured LLM data call</p>
+              <h3 data-i18n="architectureTitle">Runtime flow from user to dataset and back</h3>
+            </div>
+          </div>
+          <div class="architecture-flow">
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep1">1</p>
+              <h4 data-i18n="archUserTitle">User</h4>
+              <p data-i18n="archUserBody">Asks for a destination in natural language.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep2">2</p>
+              <h4 data-i18n="archChatTitle">Chat UI</h4>
+              <p data-i18n="archChatBody">Collects the prompt, language, and chat context.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep3">3</p>
+              <h4 data-i18n="archLlmIntentTitle">LLM (pre-search)</h4>
+              <p data-i18n="archLlmIntentBody">Interprets intent and maps it to structured filters.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box architecture-box-muted">
+              <p class="architecture-step" data-i18n="archStep4">4</p>
+              <h4 data-i18n="archMcpTitle">MCP</h4>
+              <p data-i18n="archMcpBody">Future integration point between the LLM/tool layer and structured retrieval. Not active here because this PoC keeps the stack simple.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box architecture-box-highlight">
+              <p class="architecture-step" data-i18n="archStep5">5</p>
+              <h4 data-i18n="archStructuredTitle">Structured retrieval call</h4>
+              <p data-i18n="archStructuredBody">FastAPI agent service makes a controlled GraphQL data call.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep6">6</p>
+              <h4 data-i18n="archGraphqlTitle">GraphQL</h4>
+              <p data-i18n="archGraphqlBody">Executes the destination query with explicit arguments.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep7">7</p>
+              <h4 data-i18n="archOrmTitle">SQLAlchemy</h4>
+              <p data-i18n="archOrmBody">Builds deterministic ORM filters against the destination model.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep8">8</p>
+              <h4 data-i18n="archDbTitle">SQLite</h4>
+              <p data-i18n="archDbBody">Reads the local structured travel dataset quickly.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep9">9</p>
+              <h4 data-i18n="archDatasetTitle">Transavia dataset</h4>
+              <p data-i18n="archDatasetBody">CSV-origin structured destination records remain the source of truth.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep10">10</p>
+              <h4 data-i18n="archLlmPostTitle">LLM (post-search)</h4>
+              <p data-i18n="archLlmPostBody">Writes compact recommendation text for the result cards.</p>
+            </article>
+            <div class="architecture-arrow">→</div>
+            <article class="architecture-box">
+              <p class="architecture-step" data-i18n="archStep11">11</p>
+              <h4 data-i18n="archReturnTitle">User</h4>
+              <p data-i18n="archReturnBody">Receives the interpreted request plus destination recommendations back in the chat UI.</p>
+            </article>
+          </div>
+        </section>
+
         <section class="chat-thread" id="chat-thread" aria-live="polite">
           <article class="message assistant opening-message">
             <div class="message-meta" data-i18n="assistantLabel">Assistant</div>

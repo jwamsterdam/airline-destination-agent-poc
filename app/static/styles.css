@@ -175,7 +175,8 @@ select {
 .chat-header,
 .composer,
 .results-panel,
-.technical-panel {
+.technical-panel,
+.architecture-panel {
   padding-left: 28px;
   padding-right: 28px;
 }
@@ -317,6 +318,78 @@ select {
   color: var(--muted);
   font-family: var(--font-display);
   font-size: 0.8rem;
+}
+
+.architecture-panel {
+  padding-top: 18px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(248, 255, 251, 0.7));
+}
+
+.architecture-header {
+  margin-bottom: 12px;
+}
+
+.architecture-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  scrollbar-width: thin;
+}
+
+.architecture-box {
+  flex: 0 0 190px;
+  min-height: 152px;
+  padding: 16px;
+  border: 1px solid rgba(0, 71, 52, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 30px rgba(0, 48, 39, 0.06);
+}
+
+.architecture-box h4 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.architecture-box p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.architecture-box-highlight {
+  background: linear-gradient(180deg, rgba(0, 214, 108, 0.12), rgba(255, 255, 255, 0.92));
+}
+
+.architecture-box-muted {
+  background: linear-gradient(180deg, rgba(255, 79, 160, 0.08), rgba(255, 255, 255, 0.92));
+}
+
+.architecture-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: rgba(0, 214, 108, 0.12);
+  color: #0d7b47;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+}
+
+.architecture-arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  color: rgba(0, 57, 47, 0.5);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
 }
 
 .destination-grid {
@@ -567,6 +640,7 @@ textarea:focus {
 
   .hero-panel,
   .chat-header,
+  .architecture-panel,
   .chat-thread,
   .results-panel,
   .technical-panel,

@@ -1,6 +1,10 @@
 # airline-destination-agent-poc
 PoC: AI agent that queries a structured airline destination dataset via GraphQL and MCP to provide personalized travel recommendations.
 
+## Python version
+
+This project targets **Python 3.11** (see `.python-version` and `runtime.txt`) and keeps temporary compatibility with **Python 3.9** for local development.
+
 ## GraphQL destination filter examples
 
 The `destinations` query remains backward compatible and now supports optional filters:

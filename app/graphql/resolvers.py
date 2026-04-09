@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -6,12 +8,12 @@ from app.db.models import Destination
 
 def resolve_destinations(
     db: Session,
-    country: str | None = None,
-    max_price: float | None = None,
-    min_price: float | None = None,
-    price_category: str | None = None,
-    trip_tag: str | None = None,
-    season: str | None = None,
+    country: Optional[str] = None,
+    max_price: Optional[float] = None,
+    min_price: Optional[float] = None,
+    price_category: Optional[str] = None,
+    trip_tag: Optional[str] = None,
+    season: Optional[str] = None,
 ) -> list[Destination]:
     query = db.query(Destination)
 
